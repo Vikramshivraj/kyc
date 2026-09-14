@@ -113,3 +113,21 @@ export async function getMyDocuments() {
 
   return data;
 }
+export async function getDocumentResult(documentId) {
+  const token = localStorage.getItem("access_token");
+
+  const response = await fetch(
+    `${API_BASE_URL}/documents/${documentId}/result`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch document result");
+  }
+
+  return response.json();
+}
