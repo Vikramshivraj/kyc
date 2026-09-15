@@ -1,0 +1,188 @@
+services:
+
+  # ==========================================================
+  # POSTGRESQL
+  # ==========================================================
+
+  postgres:
+    image: postgres:16
+
+    container_name: kyc-postgres-compose
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: kyc_user
+      POSTGRES_PASSWORD: kyc_password
+      POSTGRES_DB: kyc_db
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyc_user -d kyc_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ==========================================================
+  # RABBITMQ
+  # ==========================================================
+
+  rabbitmq:
+    image: rabbitmq:3-management
+
+    container_name: kyc-rabbitmq-compose
+
+    restart: unless-stopped  
+
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+    ports:
+      - "15672:15672"
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # ==========================================================
+  # MINIO
+  # ==========================================================
+
+  minio:
+    image: quay.io/minio/minio
+
+    container_name: kyc-minio-compose
+
+    restart: unless-stopped 
+
+    command: server /data --console-address ":9001"
+
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+    volumes:
+      - minio_data:/data
+
+
+  # ==========================================================
+  # FASTAPI BACKEND
+  # ==========================================================
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: kyc-backend
+
+    restart: unless-stopped
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      DATABASE_URL: postgresql+psycopg2://kyc_user:kyc_password@postgres:5432/kyc_db
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: kyc-documents
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s  
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+    expose:
+      - "8000"
+
+  # ==========================================================
+  # WORKER
+  # ==========================================================
+
+  worker:
+    build:
+      context: ./backend
+
+    container_name: kyc-worker
+
+    restart: unless-stopped
+
+    command: python -m app.worker.worker
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      DATABASE_URL: postgresql+psycopg2://kyc_user:kyc_password@postgres:5432/kyc_db
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASSWORD: guest
+
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      MINIO_BUCKET_NAME: kyc-documents
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      rabbitmq:
+        condition: service_healthy
+
+
+  # ==========================================================
+  # FRONTEND + NGINX
+  # ==========================================================
+
+  frontend:
+    build:
+      context: ./frontend
+
+    container_name: kyc-frontend
+
+    restart: unless-stopped
+
+    ports:
+      - "8080:80"
+
+    depends_on:
+      - backend
+
+
+# ============================================================
+# PERSISTENT VOLUMES
+# ============================================================
+
+volumes:
+
+  postgres_data:
+
+  minio_data:
