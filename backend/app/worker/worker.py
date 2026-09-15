@@ -32,12 +32,6 @@ from app.processing.risk import (
     calculate_risk,
 )
 
-
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
-
-
 def process_job(job_id: int, db: Session):
     job = db.get(ProcessingJob, job_id)
 
