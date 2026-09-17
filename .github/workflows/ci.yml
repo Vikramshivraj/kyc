@@ -28,6 +28,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Set CI environment variables
+        working-directory: backend
+        run: |
+          echo "JWT_SECRET_KEY=ci-test-secret-not-for-production" >> $GITHUB_ENV
+          echo "JWT_ALGORITHM=HS256" >> $GITHUB_ENV
+          echo "JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30" >> $GITHUB_ENV
+
       - name: Check Python imports
         working-directory: backend
         run: |
