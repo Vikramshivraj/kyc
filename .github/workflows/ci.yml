@@ -29,12 +29,23 @@ jobs:
           pip install -r requirements.txt
 
       - name: Set CI environment variables
-        working-directory: backend
         run: |
           echo "JWT_SECRET_KEY=ci-test-secret-not-for-production" >> $GITHUB_ENV
           echo "JWT_ALGORITHM=HS256" >> $GITHUB_ENV
           echo "JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30" >> $GITHUB_ENV
+
           echo "DATABASE_URL=postgresql+psycopg2://ci_user:ci_password@localhost:5432/ci_db" >> $GITHUB_ENV
+
+          echo "MINIO_ENDPOINT=localhost:9000" >> $GITHUB_ENV
+          echo "MINIO_ACCESS_KEY=minioadmin" >> $GITHUB_ENV
+          echo "MINIO_SECRET_KEY=minioadmin123" >> $GITHUB_ENV
+          echo "MINIO_BUCKET_NAME=kyc-documents" >> $GITHUB_ENV
+
+          echo "RABBITMQ_HOST=localhost" >> $GITHUB_ENV
+          echo "RABBITMQ_PORT=5672" >> $GITHUB_ENV
+          echo "RABBITMQ_USER=guest" >> $GITHUB_ENV
+          echo "RABBITMQ_PASSWORD=guest" >> $GITHUB_ENV
+          echo "RABBITMQ_QUEUE=kyc_processing" >> $GITHUB_ENV
 
       - name: Check Python imports
         working-directory: backend
