@@ -1,11 +1,16 @@
 import json
 import time
 from io import BytesIO
+import logging
+
+from app.logging_config import setup_logging
 
 import pika
 import pytesseract
 from PIL import Image
 from sqlalchemy.orm import Session
+
+from prometheus_client import start_http_server
 
 from app.processing.ocr import extract_text_from_file
 from app.database import SessionLocal
@@ -32,6 +37,14 @@ from app.processing.risk import (
     calculate_risk,
 )
 
+from app.monitoring.metrics import (
+    jobs_processed_total,
+    jobs_failed_total,
+    jobs_processing,
+    job_processing_seconds,
+)
+
+
 def process_job(job_id: int, db: Session):
     job = db.get(ProcessingJob, job_id)
 
@@ -52,6 +65,9 @@ def process_job(job_id: int, db: Session):
     document.status = "PROCESSING"
     db.commit()
 
+    jobs_processing.inc()
+    start_time = time.time()
+
     # Prevent duplicate verification results
     existing_result = (
         db.query(VerificationResult)
@@ -70,6 +86,9 @@ def process_job(job_id: int, db: Session):
         job.status = "COMPLETED"
         document.status = "PROCESSED"
         db.commit()
+
+        jobs_processing.dec()
+        job_processing_seconds.observe(time.time() - start_time)
 
         return
 
@@ -135,12 +154,19 @@ def process_job(job_id: int, db: Session):
 
         db.commit()
 
+        jobs_processed_total.inc()
+        jobs_processing.dec()
+        job_processing_seconds.observe(time.time() - start_time)
+
         print(
             f"Job {job_id} completed "
             f"with risk={risk['risk_level']}"
         )
 
     except Exception as error:
+        jobs_failed_total.inc()
+        jobs_processing.dec()
+
         db.rollback()
 
         job = db.get(ProcessingJob, job_id)
@@ -184,6 +210,9 @@ def callback(ch, method, properties, body):
 
 
 def start_worker():
+    setup_logging()
+
+    start_http_server(8001)
     connection = get_rabbitmq_connection()
 
     channel = connection.channel()
