@@ -1,0 +1,20 @@
+---
+- name: Configure KYC infrastructure demo
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Create application configuration directory
+      ansible.builtin.file:
+        path: /opt/kyc-platform
+        state: directory
+        mode: "0755"
+
+    - name: Create infrastructure configuration file
+      ansible.builtin.copy:
+        dest: /opt/kyc-platform/infrastructure.txt
+        content: |
+          KYC Platform Infrastructure
+          Managed by Ansible
+          Environment: local-demo
+        mode: "0644"
