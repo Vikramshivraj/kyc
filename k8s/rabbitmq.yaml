@@ -20,10 +20,17 @@ spec:
             - containerPort: 5672
             - containerPort: 15672
           env:
-            - name: RABBITMQ_DEFAULT_USER
-              value: guest
-            - name: RABBITMQ_DEFAULT_PASS
-              value: guest
+          - name: RABBITMQ_DEFAULT_USER
+            valueFrom:
+              secretKeyRef:
+                name: kyc-secrets
+                key: RABBITMQ_DEFAULT_USER
+
+          - name: RABBITMQ_DEFAULT_PASS
+            valueFrom:
+              secretKeyRef:
+                name: kyc-secrets
+                key: RABBITMQ_DEFAULT_PASS
 
 ---
 apiVersion: v1
